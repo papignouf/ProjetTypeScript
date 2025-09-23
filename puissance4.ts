@@ -2,6 +2,7 @@ import * as readline from 'readline';
 
 const ROWS = 6;
 const COLS = 7;
+const WIN_COUNT = 4;
 type Cell = null | 'R' | 'Y';
 
 function createEmptyBoard(): Cell[][] {
@@ -30,14 +31,49 @@ function findAvailableRow(board: Cell[][], col: number): number {
   return -1;
 }
 
+// checks contiguous in a direction
+function countDirection(board: Cell[][], r: number, c: number, dr: number, dc: number, player: 'R' | 'Y'): number {
+  let count = 0;
+  let x = r, y = c;
+  while (x >= 0 && x < ROWS && y >= 0 && y < COLS && board[x][y] === player) {
+    count++;
+    x += dr;
+    y += dc;
+  }
+  return count;
+}
+
+function checkWin(board: Cell[][], row: number, col: number, player: 'R' | 'Y'): boolean {
+  const dirs = [[0,1],[1,0],[1,1],[1,-1]];
+  for (const [dr,dc] of dirs) {
+    const c1 = countDirection(board, row, col, dr, dc, player);
+    const c2 = countDirection(board, row, col, -dr, -dc, player);
+    if (c1 + c2 - 1 >= WIN_COUNT) return true;
+  }
+  return false;
+}
+
+function isDraw(board: Cell[][]): boolean {
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (board[r][c] === null) return false;
+    }
+  }
+  return true;
+}
+
 const board = createEmptyBoard();
 let currentPlayer: 'R' | 'Y' = 'R';
+let isGameOver = false;
 
-// Simple REPL to allow playing single-player moves
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
 function promptTurn() {
   printBoard(board);
+  if (isGameOver) {
+    rl.close();
+    return;
+  }
   rl.question(`Joueur ${currentPlayer}, entre la colonne (0-${COLS - 1}) : `, (ans) => {
     const col = parseInt(ans.trim(), 10);
     if (isNaN(col) || col < 0 || col >= COLS) {
@@ -50,7 +86,20 @@ function promptTurn() {
       return promptTurn();
     }
     board[row][col] = currentPlayer;
-    // toggle player
+    if (checkWin(board, row, col, currentPlayer)) {
+      printBoard(board);
+      console.log(`Le joueur ${currentPlayer} a gagné !`);
+      isGameOver = true;
+      rl.close();
+      return;
+    }
+    if (isDraw(board)) {
+      printBoard(board);
+      console.log('Match nul !');
+      isGameOver = true;
+      rl.close();
+      return;
+    }
     currentPlayer = currentPlayer === 'R' ? 'Y' : 'R';
     promptTurn();
   });
