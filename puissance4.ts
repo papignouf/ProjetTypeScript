@@ -31,14 +31,11 @@ function findAvailableRow(board: Cell[][], col: number): number {
   return -1;
 }
 
-// checks contiguous in a direction
 function countDirection(board: Cell[][], r: number, c: number, dr: number, dc: number, player: 'R' | 'Y'): number {
   let count = 0;
   let x = r, y = c;
   while (x >= 0 && x < ROWS && y >= 0 && y < COLS && board[x][y] === player) {
-    count++;
-    x += dr;
-    y += dc;
+    count++; x += dr; y += dc;
   }
   return count;
 }
@@ -54,52 +51,51 @@ function checkWin(board: Cell[][], row: number, col: number, player: 'R' | 'Y'):
 }
 
 function isDraw(board: Cell[][]): boolean {
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
-      if (board[r][c] === null) return false;
-    }
-  }
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (board[r][c] === null) return false;
   return true;
 }
 
 const board = createEmptyBoard();
 let currentPlayer: 'R' | 'Y' = 'R';
 let isGameOver = false;
+const history: { row: number; col: number; player: 'R' | 'Y' }[] = [];
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
-function promptTurn() {
-  printBoard(board);
-  if (isGameOver) {
-    rl.close();
+function undo() {
+  if (history.length === 0) {
+    console.log('Rien à annuler');
     return;
   }
-  rl.question(`Joueur ${currentPlayer}, entre la colonne (0-${COLS - 1}) : `, (ans) => {
-    const col = parseInt(ans.trim(), 10);
+  const last = history.pop()!;
+  board[last.row][last.col] = null;
+  currentPlayer = last.player;
+  isGameOver = false;
+  console.log('Dernier coup annulé');
+}
+
+function promptTurn() {
+  printBoard(board);
+  if (isGameOver) { rl.close(); return; }
+  rl.question(`Joueur ${currentPlayer} (col / 'undo'): `, (ans) => {
+    const s = ans.trim().toLowerCase();
+    if (s === 'undo') {
+      undo();
+      return promptTurn();
+    }
+    const col = parseInt(s, 10);
     if (isNaN(col) || col < 0 || col >= COLS) {
       console.log('Colonne invalide');
       return promptTurn();
     }
     const row = findAvailableRow(board, col);
-    if (row === -1) {
-      console.log('Colonne pleine');
-      return promptTurn();
-    }
+    if (row === -1) { console.log('Colonne pleine'); return promptTurn(); }
     board[row][col] = currentPlayer;
+    history.push({ row, col, player: currentPlayer });
     if (checkWin(board, row, col, currentPlayer)) {
-      printBoard(board);
-      console.log(`Le joueur ${currentPlayer} a gagné !`);
-      isGameOver = true;
-      rl.close();
-      return;
+      printBoard(board); console.log(`Le joueur ${currentPlayer} a gagné !`); isGameOver = true; rl.close(); return;
     }
-    if (isDraw(board)) {
-      printBoard(board);
-      console.log('Match nul !');
-      isGameOver = true;
-      rl.close();
-      return;
-    }
+    if (isDraw(board)) { printBoard(board); console.log('Match nul !'); isGameOver = true; rl.close(); return; }
     currentPlayer = currentPlayer === 'R' ? 'Y' : 'R';
     promptTurn();
   });
