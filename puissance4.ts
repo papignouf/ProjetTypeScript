@@ -1,27 +1,19 @@
-// puissance4.ts (version corrigée et plus robuste)
-// Puissance 4 en terminal (TypeScript)
-// Usage rapide : npx ts-node puissance4.ts
-// Avant d'exécuter, assure-toi d'avoir installé : npm i -D ts-node typescript @types/node
-
 import * as readline from 'readline';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 
-// ---------- Configuration ----------
 const ROWS = 6;
 const COLS = 7;
 const WIN_COUNT = 4;
 type Cell = null | 'R' | 'Y';
 type Player = 'R' | 'Y';
 
-// ---------- État du jeu ----------
 let board: Cell[][] = createEmptyBoard();
 let currentPlayer: Player = 'R';
 let isGameOver = false;
 const history: { row: number; col: number; player: Player }[] = [];
 let rl: readline.Interface | null = null;
 
-// ---------- Utilitaires (grille) ----------
 function createEmptyBoard(): Cell[][] {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(null));
 }
@@ -30,7 +22,6 @@ function cloneBoard(src: Cell[][]): Cell[][] {
   return src.map(row => row.slice());
 }
 
-// affiche la grille dans la console (ASCII)
 function printBoard(b: Cell[][]) {
   console.clear();
   console.log('Puissance 4 — Terminal\n');
@@ -45,13 +36,12 @@ function printBoard(b: Cell[][]) {
     console.log(line);
     console.log('-'.repeat(COLS * 4 + 1));
   }
-  // indices colonnes
+
   let idxLine = ' ';
   for (let c = 0; c < COLS; c++) idxLine += ` ${c}  `;
   console.log(idxLine + '\n');
 }
 
-// retourne l'indice de la première ligne disponible (du bas vers le haut) ou -1 si pleine
 function findAvailableRow(b: Cell[][], col: number): number {
   if (col < 0 || col >= COLS) return -1;
   for (let r = ROWS - 1; r >= 0; r--) {
@@ -60,7 +50,6 @@ function findAvailableRow(b: Cell[][], col: number): number {
   return -1;
 }
 
-// ---------- Logique victoire / draw ----------
 function countDirection(b: Cell[][], r: number, c: number, dr: number, dc: number, player: Player): number {
   let cnt = 0;
   let x = r, y = c;
@@ -73,10 +62,10 @@ function countDirection(b: Cell[][], r: number, c: number, dr: number, dc: numbe
 
 function checkWin(b: Cell[][], row: number, col: number, player: Player): boolean {
   const dirs = [
-    { dr: 0, dc: 1 },  // horizontal
-    { dr: 1, dc: 0 },  // vertical
-    { dr: 1, dc: 1 },  // diag desc
-    { dr: 1, dc: -1 }  // diag asc
+    { dr: 0, dc: 1 },  
+    { dr: 1, dc: 0 },  
+    { dr: 1, dc: 1 }, 
+    { dr: 1, dc: -1 }  
   ];
   for (const d of dirs) {
     const c1 = countDirection(b, row, col, d.dr, d.dc, player);
@@ -91,7 +80,6 @@ function isDraw(b: Cell[][]): boolean {
   return true;
 }
 
-// retourne la séquence gagnante (positions) si existante à partir du dernier coup
 function findWinningSequence(b: Cell[][], row: number, col: number, player: Player): { row: number; col: number }[] {
   const dirs = [
     { dr: 0, dc: 1 },
@@ -101,13 +89,13 @@ function findWinningSequence(b: Cell[][], row: number, col: number, player: Play
   ];
   for (const d of dirs) {
     const seq: {row:number;col:number}[] = [];
-    // back
+    
     let x = row, y = col;
     while (x >= 0 && x < ROWS && y >= 0 && y < COLS && b[x][y] === player) {
       seq.unshift({ row: x, col: y });
       x -= d.dr; y -= d.dc;
     }
-    // forward
+    
     x = row + d.dr; y = col + d.dc;
     while (x >= 0 && x < ROWS && y >= 0 && y < COLS && b[x][y] === player) {
       seq.push({ row: x, col: y });
@@ -118,15 +106,14 @@ function findWinningSequence(b: Cell[][], row: number, col: number, player: Play
   return [];
 }
 
-// ---------- IA (robuste) ----------
 function aiChooseColumn(b: Cell[][], aiPlayer: Player, mode: 'easy'|'medium'='medium'): number {
   const opponent: Player = aiPlayer === 'R' ? 'Y' : 'R';
   const valid = Array.from({ length: COLS }, (_, i) => i).filter(c => findAvailableRow(b, c) !== -1);
-  if (valid.length === 0) return -1; // pas de coup possible
+  if (valid.length === 0) return -1; 
   if (mode === 'easy') {
     return valid[Math.floor(Math.random() * valid.length)];
   }
-  // medium: 1) win immediat 2) block opponent 3) prefer center 4) random
+
   for (const c of valid) {
     const r = findAvailableRow(b, c);
     if (r === -1) continue;
@@ -148,7 +135,7 @@ function aiChooseColumn(b: Cell[][], aiPlayer: Player, mode: 'easy'|'medium'='me
   return valid[Math.floor(Math.random() * valid.length)];
 }
 
-// ---------- Save / Load (robuste) ----------
+
 function isValidBoardShape(obj: any): obj is Cell[][] {
   if (!Array.isArray(obj) || obj.length !== ROWS) return false;
   for (const row of obj) {
@@ -180,7 +167,7 @@ async function loadGame(filename: string) {
       console.log('Fichier invalide : format attendu non retrouvé.');
       return;
     }
-    // assign sécurisée
+  
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) board[r][c] = data.board[r][c];
     history.length = 0;
     for (const h of data.history) {
@@ -196,7 +183,6 @@ async function loadGame(filename: string) {
   }
 }
 
-// ---------- Undo ----------
 function undo() {
   if (history.length === 0) {
     console.log('Aucun coup à annuler.');
@@ -205,7 +191,7 @@ function undo() {
   const last = history.pop()!;
   if (last && board[last.row] && typeof board[last.row][last.col] !== 'undefined') {
     board[last.row][last.col] = null;
-    currentPlayer = last.player; // redonne la main à celui qui avait joué
+    currentPlayer = last.player; 
     isGameOver = false;
     console.log('Dernier coup annulé.');
   } else {
@@ -213,7 +199,6 @@ function undo() {
   }
 }
 
-// ---------- Replay ----------
 function sleep(ms: number) { return new Promise(res => setTimeout(res, ms)); }
 async function replayHistory() {
   if (history.length === 0) { console.log('Aucun historique à rejouer.'); return; }
@@ -227,7 +212,6 @@ async function replayHistory() {
   console.log('Fin du replay.');
 }
 
-// ---------- Aide ----------
 function printHelp() {
   console.log('\nCommandes disponibles :');
   console.log(' <col>            -> jouer en colonne (ex: 3)');
@@ -241,7 +225,6 @@ function printHelp() {
   console.log(' exit / quit      -> quitter\n');
 }
 
-// ---------- Boucle principale (REPL) ----------
 function startREPL() {
   rl = readline.createInterface({ input: process.stdin, output: process.stdout, prompt: '> ' });
   printBoard(board);
@@ -303,7 +286,6 @@ function startREPL() {
         rl!.close();
         return;
       } else {
-        // si l'utilisateur a juste tapé un nombre (colonne)
         const maybe = parseInt(cmd, 10);
         if (!isNaN(maybe)) {
           const col = maybe;
@@ -347,5 +329,4 @@ function startREPL() {
   });
 }
 
-// ---------- Démarrage ----------
 startREPL();
